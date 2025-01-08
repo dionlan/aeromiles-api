@@ -20,7 +20,7 @@ public class FlightSearchController {
     private FlightSearchService flightSearchService;
 
     @GetMapping("/search")
-    public ResponseEntity<List<String>> searchFlights() throws IOException {
+    public ResponseEntity<List<String>> searchFlights() {
         String response = flightSearchService.searchAirlines();
         String searchId = flightSearchService.getSearchIdFromResponse(response);
         List<String> airlines = flightSearchService.parseAirlines(response);
