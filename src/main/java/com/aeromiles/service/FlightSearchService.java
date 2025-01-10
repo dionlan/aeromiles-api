@@ -1,22 +1,19 @@
 package com.aeromiles.service;
 
+import com.aeromiles.model.maxmilhas.SearchResponse;
+import com.aeromiles.model.maxmilhas.dto.*;
+import com.aeromiles.model.maxmilhas.entity.*;
+import com.aeromiles.repository.OfferRepository;
 import com.aeromiles.util.ResponseParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class FlightSearchService {
@@ -24,11 +21,8 @@ public class FlightSearchService {
     @Autowired
     private WebClient webClient;
 
-    private final RestTemplate restTemplate;
-
-    public FlightSearchService(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
-    }
+    @Autowired
+    private OfferRepository offerRepository;
 
     public String searchAirlines() {
         String url = "https://www.maxmilhas.com.br/busca-passagens-aereas/RT/BSB/CGH/2025-01-29/2025-02-04/1/0/0/EC";
@@ -57,10 +51,29 @@ public class FlightSearchService {
         return ResponseParser.extractAirlines(response);
     }
 
-    public String searchFlightsByAirline(String airline, String searchId) {
+    public void searchFlightsByAirline(String airline, String searchId) {
         String url = "/search/air-offer/offers/" + searchId + "/" + airline;
+        List<OfferDTO> offerDTOs = webClient.get()
+            .uri(uriBuilder -> uriBuilder.path(url).build())
+            .retrieve()
+            .bodyToMono(SearchResponse.class)
+            .map(SearchResponse::getOffers)
+            .block();
 
-        Map<String, Object> responseWc = webClient.get()
+        // Verificando se há ofertas e salvando no banco
+        if (offerDTOs != null && !offerDTOs.isEmpty()) {
+            //offerRepository.saveAll(offers);
+            List<Offer> offers = offerDTOs.stream()
+                .map(this::convertToEntity)
+                .collect(Collectors.toList());
+
+            offerRepository.saveAll(offers);
+            System.out.println("Successfully saved " + offers.size() + " offers.");
+        } else {
+            System.out.println("No offers to save.");
+        }
+
+        /*Map<String, Object> responseWc = webClient.get()
             .uri(uriBuilder -> uriBuilder
             .path(url)
             .build(searchId, airline))
@@ -110,6 +123,75 @@ public class FlightSearchService {
         System.out.println("Journey Type: " + journeyType);
         System.out.println("Cabin: " + cabin);*/
 
-        return searchIdFromResponse;
+        //return searchIdFromResponse;*/
+    }
+
+    private Offer convertToEntity(OfferDTO dto) {
+        Offer offer = new Offer();
+        offer.setIdOffer(dto.getIdOffer());
+        offer.setComparativeLevel(dto.getComparativeLevel());
+        offer.setType(dto.getType());
+
+        List<ThirdPartyOffer> thirdPartyOffers = dto.getThirdPartyOffers()
+            .stream()
+            .map(this::convertThirdPartyOfferToEntity)
+            .collect(Collectors.toList());
+        offer.setThirdPartyOffers(thirdPartyOffers);
+
+        List<Bound> bounds = dto.getBounds()
+            .stream()
+            .map(this::convertBoundToEntity)
+            .collect(Collectors.toList());
+        offer.setBounds(bounds);
+        return offer;
+    }
+
+    private ThirdPartyOffer convertThirdPartyOfferToEntity(ThirdPartyOfferDTO dto) {
+        ThirdPartyOffer thirdPartyOffer = new ThirdPartyOffer();
+        thirdPartyOffer.setProvider(dto.getProvider());
+        thirdPartyOffer.setCurrencyCode(dto.getCurrencyCode());
+        thirdPartyOffer.setAmount(dto.getAmount());
+        return thirdPartyOffer;
+    }
+
+    private Bound convertBoundToEntity(BoundDTO dto) {
+        Bound bound = new Bound();
+        List<Segment> segments = dto.getSegments()
+            .stream()
+            .map(this::convertSegmentToEntity)
+            .collect(Collectors.toList());
+        bound.setSegments(segments);
+
+        return bound;
+    }
+
+    private Segment convertSegmentToEntity(SegmentDTO dto) {
+        Segment segment = new Segment();
+        segment.setOperatingFlightNumber(dto.getOperatingFlightNumber());
+        segment.setDuration(dto.getDuration());
+        segment.setStopQuantity(dto.getStopQuantity());
+        segment.setIdSegment(dto.getId());
+        segment.setCabin(dto.getCabin());
+        segment.setBookingClass(dto.getBookingClass());
+
+        Bound bound = new Bound();
+        segment.setBound(bound);
+
+        segment.setDeparture(convertLocationToEntity(dto.getDeparture()));
+        segment.setArrival(convertLocationToEntity(dto.getArrival()));
+
+        return segment;
+    }
+
+    private Location convertLocationToEntity(LocationDTO dto) {
+        Location location = new Location();
+        location.setLocationCode(dto.getLocationCode());
+        location.setDateTime(dto.getDateTime());
+        return location;
+    }
+
+    @Transactional
+    public void saveOffer(Offer offer) {
+        //offerRepository.save(offer);
     }
 }

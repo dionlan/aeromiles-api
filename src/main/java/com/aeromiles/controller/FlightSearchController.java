@@ -28,8 +28,8 @@ public class FlightSearchController {
         List<String> allFlights = new ArrayList<>();
 
         for (String airline : airlines) {
-            String flight = flightSearchService.searchFlightsByAirline(airline, searchId);
-            allFlights.add(flight);
+            flightSearchService.searchFlightsByAirline(airline, searchId);
+            //allFlights.add(flight);
         }
 
         return ResponseEntity.ok(allFlights);
