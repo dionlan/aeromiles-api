@@ -3,19 +3,14 @@ package com.aeromiles.model.maxmilhas.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 
 @Data
-@Entity
+@Embeddable
 public class Location {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false)
     private String locationCode;
+    private ZonedDateTime dateTime;
+    private String terminal;
 
-    @Column(nullable = false)
-    private String dateTime;
 }

@@ -10,4 +10,20 @@ public class BoundDTO {
 
     @JsonProperty("segments")
     private List<SegmentDTO> segments;
+
+    @JsonProperty("fareProfile")
+    private FareProfileDTO fareProfile;
+
+    @JsonProperty("duration")
+    private String duration;
+
+    @JsonProperty("departure")
+    private LocationDTO departure;
+
+    @JsonProperty("arrival")
+    private LocationDTO arrival;
+
+    @JsonProperty("totalStops")
+    private Integer totalStops;
+
 }

@@ -1,9 +1,13 @@
 package com.aeromiles.configuration;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 /*
     O RestTemplate está em desuso para novas aplicações. O WebClient, da biblioteca Spring WebFlux, é mais moderno,
@@ -13,6 +17,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class WebClientConfig {
 
     private static final HttpHeaders HEADERS;
+
+    private static final Logger logger = LoggerFactory.getLogger(WebClientConfig.class);
 
     static {
         HEADERS = new HttpHeaders();
@@ -32,8 +38,16 @@ public class WebClientConfig {
 
     @Bean
     public WebClient webClient(WebClient.Builder builder) {
-        // Adicionando os cabeçalhos da constante HEADERS ao WebClient.Builder
-        WebClient.Builder webClientBuilder = builder.baseUrl("https://bff-mall.maxmilhas.com.br")
+
+        return builder
+            .defaultHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+            .codecs(configurer -> {
+            // Aumentando o limite do buffer de dados (NECESSÁRIO PARA A LATAM)
+            configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024); // 10 MB
+            }).filter(logRequest()) // Log de requisição
+            .filter(logResponse()) // Log de resposta
+            .build();
+        /*WebClient.Builder webClientBuilder = builder.baseUrl("https://bff-mall.maxmilhas.com.br")
         .codecs(configurer -> {
             // Aumentando o limite do buffer de dados (NECESSÁRIO PARA A LATAM)
             configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024); // 10 MB
@@ -42,7 +56,7 @@ public class WebClientConfig {
         HEADERS.forEach((key, values) -> values.forEach(value -> webClientBuilder.defaultHeader(key, value))
         );
 
-        return webClientBuilder.build();
+        return webClientBuilder.build(); */
     }
 
     /*
@@ -55,4 +69,24 @@ public class WebClientConfig {
         .map(this::extractJsonFromHtml) // Usando o método com Jsoup
         .block(); // Bloqueando para obter a resposta síncrona
      */
+
+    private ExchangeFilterFunction logRequest() {
+        return ExchangeFilterFunction.ofRequestProcessor(clientRequest -> {
+            logger.info("Request: [{} {}]", clientRequest.method(), clientRequest.url());
+            clientRequest.headers().forEach((name, values) ->
+                    values.forEach(value -> logger.info("Header '{}': {}", name, value))
+            );
+            return Mono.just(clientRequest);
+        });
+    }
+
+    private ExchangeFilterFunction logResponse() {
+        return ExchangeFilterFunction.ofResponseProcessor(clientResponse -> {
+            logger.info("Response Status Code: {}", clientResponse.statusCode());
+            clientResponse.headers().asHttpHeaders().forEach((name, values) ->
+                    values.forEach(value -> logger.info("Response Header '{}': {}", name, value))
+            );
+            return Mono.just(clientResponse);
+        });
+    }
 }

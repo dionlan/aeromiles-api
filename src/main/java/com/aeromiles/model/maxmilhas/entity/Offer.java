@@ -29,4 +29,12 @@ public class Offer {
 
     @OneToMany(mappedBy = "offer", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Bound> bounds = new ArrayList<>();
+
+    public void setThirdPartyOffers(List<ThirdPartyOffer> thirdPartyOffers) {
+        this.thirdPartyOffers.clear();
+        if (thirdPartyOffers != null) {
+            thirdPartyOffers.forEach(thirdPartyOffer -> thirdPartyOffer.setOffer(this));
+            this.thirdPartyOffers.addAll(thirdPartyOffers);
+        }
+    }
 }

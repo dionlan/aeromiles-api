@@ -21,7 +21,7 @@ public class ThirdPartyOffer {
     private Double amount;
 
     @ManyToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "offer_id")
+    @JoinColumn(name = "offer_id", nullable = false) // Define que o campo não pode ser nulo
     private Offer offer;
 
 }

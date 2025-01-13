@@ -11,4 +11,7 @@ public class LocationDTO {
 
     @JsonProperty("dateTime")
     private String dateTime;
+
+    @JsonProperty("terminal")
+    private String terminal;
 }

@@ -33,12 +33,20 @@ public class Segment {
     @JoinColumn(name = "bound_id")
     private Bound bound;
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "departure_id", referencedColumnName = "id")
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "locationCode", column = @Column(name = "departure_location_code")),
+            @AttributeOverride(name = "dateTime", column = @Column(name = "departure_date_time")),
+            @AttributeOverride(name = "terminal", column = @Column(name = "departure_terminal"))
+    })
     private Location departure;
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "arrival_id", referencedColumnName = "id")
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "locationCode", column = @Column(name = "arrival_location_code")),
+            @AttributeOverride(name = "dateTime", column = @Column(name = "arrival_date_time")),
+            @AttributeOverride(name = "terminal", column = @Column(name = "arrival_terminal"))
+    })
     private Location arrival;
 
 }
