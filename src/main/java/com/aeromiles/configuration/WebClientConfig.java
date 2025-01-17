@@ -44,8 +44,8 @@ public class WebClientConfig {
             .codecs(configurer -> {
             // Aumentando o limite do buffer de dados (NECESSÁRIO PARA A LATAM)
             configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024); // 10 MB
-            }).filter(logRequest()) // Log de requisição
-            .filter(logResponse()) // Log de resposta
+            })/*.filter(logRequest()) // Log de requisição
+            .filter(logResponse())*/ // Log de resposta
             .build();
         /*WebClient.Builder webClientBuilder = builder.baseUrl("https://bff-mall.maxmilhas.com.br")
         .codecs(configurer -> {

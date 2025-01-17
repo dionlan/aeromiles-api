@@ -5,6 +5,8 @@ import com.aeromiles.model.onetwothree.Search;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -57,5 +59,14 @@ public class SearchDTO {
         }
 
         return search;
+    }
+
+    public List<FlightOneTwoThree> toEntityList() {
+        if (flights == null || flights.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return flights.values().stream()
+            .map(FlightOneTwoThreeDTO::toEntity) // Converte cada DTO para a entidade correspondente
+            .toList();
     }
 }

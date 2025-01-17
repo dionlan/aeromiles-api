@@ -10,6 +10,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static java.util.Objects.isNull;
+
 @Data
 public class FlightOneTwoThreeDTO {
 
@@ -167,7 +169,7 @@ public class FlightOneTwoThreeDTO {
         flight.setIsFareBaseWithDiscount(dto.getIsFareBaseWithDiscount());
         flight.setWarningEscale(dto.getWarningEscale());
         flight.setSemiExecutive(dto.getSemiExecutive());
-        flight.setMiles(dto.getMiles());
+        flight.setMiles(isNull(dto.getMiles()) ? 0 : dto.getMiles());
         flight.setTokenFingerprintClearsale(dto.getTokenFingerprintClearsale());
         flight.setAirlineOneTwoThree(AirlineOneTwoThreeDTO.toEntity(dto.getAirline()));
         flight.setStops(dto.getStops().stream().map(StopDTO::toEntity).collect(Collectors.toList()));
