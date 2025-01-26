@@ -9,10 +9,10 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.devtools.DevTools;
+import org.openqa.selenium.devtools.DevToolsException;
 import org.openqa.selenium.devtools.v131.network.Network;
 import org.openqa.selenium.devtools.v131.network.model.Response;
 import org.openqa.selenium.devtools.v131.network.model.ResponseReceived;
@@ -47,44 +47,26 @@ public class OneTwoThreeService {
 
         String url = String.format(API_URL_TEMPLATE, departureAirport, arrivalAirport, departureTime, adults, children, babies, classType, isLoyalty);
         ChromeOptions options = new ChromeOptions();
-        //options.addArguments("--headless=new");
-        options.addArguments("--disable-gpu"); // Desabilita a GPU (opcional)
-        options.addArguments("--no-sandbox"); // Para evitar problemas de segurança em ambientes Linux
-        options.addArguments("--window-size=600,400"); // Define o tamanho da janela (opcional)
-        options.addArguments("disable-extensions"); // Desabilita extensõe
-        options.addArguments("--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows");
+        options.addArguments("--disable-gpu", "--no-sandbox", "--window-size=600,400");
+        //options.addArguments("--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows");
         options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+
+        System.setProperty("webdriver.chrome.driver", "C:\\Users\\dius_\\Downloads\\selenium 131\\chromedriver-win64\\chromedriver.exe");
         WebDriver driver = new ChromeDriver(options);
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
-        driver.manage().timeouts().scriptTimeout(Duration.ofSeconds(15));
+        //driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+        //driver.manage().timeouts().scriptTimeout(Duration.ofSeconds(15));
+        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
 
         try {
             DevTools devTools = ((ChromeDriver) driver).getDevTools();
-            setupDevTools(devTools);
+            devTools.createSession();
 
-            final int MAX_RETRIES = 3;
-            boolean pageLoaded = false;
+            driver.get(url);
 
-            for (int attempts = 0; attempts < MAX_RETRIES; attempts++) {
-                driver.get(url);
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(120));
+            wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector("div.loading-search-container")));
 
-                // Verifica se a página carregou completamente
-                if (PageLoadHelper.isPageLoaded(driver)) {
-                    System.out.println("Página carregada completamente.");
-                    pageLoaded = true;
-                    break;
-                } else {
-                    System.err.println("Falha ao carregar a página. Tentativa " + (attempts + 1));
-                }
-            }
-
-            if (!pageLoaded) {
-                System.err.println("Falha ao carregar a página após " + MAX_RETRIES + " tentativas.");
-                return flights;
-            }
-
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div.flights")));
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div#searchResultGroup.search-result__container.search-result.group.search-result__flights-container")));
 
             /*WebElement flightsDiv = driver.findElement(By.cssSelector("div.flights"));
             //WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
@@ -96,35 +78,38 @@ public class OneTwoThreeService {
 
             final String targetUrl = "https://123milhas.com/api/v3/flight/search";
             CompletableFuture<Void> jsonReadyFuture = new CompletableFuture<>();
-            AtomicBoolean jsonProcessed = new AtomicBoolean(false); // Sinaliza o processamento concluído
+            AtomicBoolean jsonProcessed = new AtomicBoolean(false);
 
-            devTools.addListener(Network.responseReceived(), response ->
-                handleResponse(response, targetUrl, devTools, jsonReadyFuture, jsonProcessed)
-            );
+            devTools.addListener(Network.responseReceived(), response -> {
+                handleResponse(response, targetUrl, devTools, jsonReadyFuture, jsonProcessed);
+            });
+            //driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+            // Aguarda o processamento do JSON
 
-            waitForJsonProcessing(jsonReadyFuture); // Espera a resposta ser processada
+            waitForJsonProcessing(jsonReadyFuture);
+
             System.out.println("JSON tratado e salvo no banco com sucesso.");
 
         } catch (Exception e) {
             System.err.println("Erro ao executar o método save: " + e.getMessage());
         } finally {
-            driver.quit();
+            driver.quit(); // Encerra o WebDriver no final de todo o processo
         }
+
         return flights;
     }
 
     private void setupDevTools(DevTools devTools) {
-        devTools.createSession();
         devTools.send(Network.enable(Optional.empty(), Optional.empty(), Optional.empty()));
 
         devTools.send(Network.setBlockedURLs(Arrays.asList(
-            "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", // Imagens
-            "*.css", "*.woff", "*.woff2", "*.ttf", "*.svg", // Estilos e fontes
-            "*.mp4", "*.avi", "*.mov", "*.mkv", "*.flv", "*.webm", // Vídeos
-            "*.mp3", "*.wav", "*.ogg" // Áudio
+            "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp",
+            "*.woff", "*.woff2", "*.ttf", "*.svg",
+            "*.mp4", "*.avi", "*.mov", "*.mkv", "*.flv", "*.webm",
+            "*.mp3", "*.wav", "*.ogg"
         )));
 
-        devTools.send(Network.setCacheDisabled(true));
+        //devTools.send(Network.setCacheDisabled(true));
     }
 
     private void handleResponse(ResponseReceived response, String targetUrl, DevTools devTools, CompletableFuture<Void> jsonReadyFuture, AtomicBoolean jsonProcessed) {
@@ -134,15 +119,27 @@ public class OneTwoThreeService {
             System.out.println("Interceptando resposta do endpoint: " + res.getUrl());
 
             try {
-                Thread.sleep(500);
-                Network.GetResponseBodyResponse responseBody = devTools.send(Network.getResponseBody(response.getRequestId()));
-                String json = responseBody.getBody();
+                if (response.getRequestId() != null) {
+                    Network.GetResponseBodyResponse responseBody = devTools.send(Network.getResponseBody(response.getRequestId()));
+                    String json = responseBody.getBody();
 
-                processResponse(json);
-                Thread.sleep(500);
-                jsonProcessed.set(true);
-                jsonReadyFuture.complete(null);
-
+                    if (json != null && !json.isEmpty()) {
+                        processResponse(json);
+                        jsonProcessed.set(true);
+                        jsonReadyFuture.complete(null);
+                    } else {
+                        System.err.println("O corpo da resposta está vazio ou nulo.");
+                    }
+                } else {
+                    System.err.println("Request ID inválido ou nulo para a resposta do endpoint: " + res.getUrl());
+                }
+            } catch (DevToolsException e) {
+                if (e.getMessage().contains("No data found for resource with given identifier")) {
+                    System.err.println("Os dados da resposta não estão mais disponíveis.");
+                } else {
+                    System.err.println("Erro no DevTools ao obter o corpo da resposta: " + e.getMessage());
+                }
+                jsonReadyFuture.completeExceptionally(e);
             } catch (Exception e) {
                 System.err.println("Erro ao interceptar a resposta: " + e.getMessage());
             }
@@ -161,15 +158,13 @@ public class OneTwoThreeService {
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         try {
             RootData rootData = objectMapper.readValue(responseContent, RootData.class);
-            Thread.sleep(500);
             flights.addAll(rootData.getData().toEntityList());
 
             Search search = SearchDTO.toEntity(rootData.getData());
             searchRepository.save(search);
-            Thread.sleep(1000);
-            System.out.println("Dados processados e persistidos com sucesso!");
+            System.out.println("====================***************************DADOS PROCESSADOS E PERSISTIDOS COM SUCESSO!!!!!!!!!!!!!!!!!!!!!!!!!");
         } catch (Exception e) {
-            System.err.println("Erro ao processar resposta: " + e.getMessage());
+            System.err.println("ERRO AO PROCESSA RESPOSTA!!!!: " + e.getMessage());
             e.printStackTrace();
         }
     }
