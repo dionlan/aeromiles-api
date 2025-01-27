@@ -12,8 +12,8 @@ import org.springframework.context.annotation.ComponentScan;
 import java.time.Duration;
 import java.util.Optional;
 
-@SpringBootApplication
-@ComponentScan(basePackages = "com.aeromiles")
+//@SpringBootApplication
+//@ComponentScan(basePackages = "com.aeromiles")
 public class TesteMainTeste {
 
     public static void main(String[] args) {

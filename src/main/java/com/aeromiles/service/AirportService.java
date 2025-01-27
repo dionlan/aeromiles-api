@@ -13,6 +13,10 @@ public class AirportService {
     @Autowired
     private AirportRepository airportRepository;
 
+    public List<Airport> getAllAirports() {
+        return airportRepository.findAll();
+    }
+
     public List<Airport> searchAirports(String query) {
         return airportRepository.searchByMultipleFields(query);
     }

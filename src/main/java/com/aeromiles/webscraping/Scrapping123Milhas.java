@@ -16,8 +16,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
-@SpringBootApplication
-@ComponentScan(basePackages = "com.aeromiles")
+//@SpringBootApplication
+//@ComponentScan(basePackages = "com.aeromiles")
 public class Scrapping123Milhas {
 
     public static void main(String[] args) {

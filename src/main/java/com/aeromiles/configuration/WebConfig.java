@@ -12,6 +12,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
             .allowedOrigins(
                 "http://localhost:4200",
+                "http://localhost:5173",
                 "https://simovel-app.vercel.app",
                 "https://fearless-peace-production.up.railway.app"
             )

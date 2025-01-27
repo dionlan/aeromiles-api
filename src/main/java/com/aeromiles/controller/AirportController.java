@@ -17,6 +17,11 @@ public class AirportController {
     @Autowired
     private AirportService airportService;
 
+    @GetMapping
+    public List<Airport> searchAllAirports() {
+        return airportService.getAllAirports();
+    }
+
     @GetMapping("/search")
     public List<Airport> searchAirports(@RequestParam("query") String query) {
         return airportService.searchAirports(query);

@@ -74,6 +74,7 @@ public class TesteMain {
 
         } catch (Exception e) {
             e.printStackTrace();
+
         } finally {
             driver.quit();
             System.out.println("Navegador fechado.");
