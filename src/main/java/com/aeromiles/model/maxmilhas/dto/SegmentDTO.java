@@ -6,27 +6,34 @@ import lombok.Data;
 @Data
 public class SegmentDTO {
 
-    @JsonProperty("operatingFlightNumber")
+    @JsonProperty("id")
+    private String idSegment;
+
+    private String marketingAirlineCode;
+
+    private String operatingAirlineCode;
+
+    private String marketingFlightNumber;
+
     private String operatingFlightNumber;
 
-    @JsonProperty("duration")
-    private String duration;
-
-    @JsonProperty("stopQuantity")
-    private Integer stopQuantity;
-
-    @JsonProperty("id")
-    private String id;
-
-    @JsonProperty("cabin")
-    private String cabin;
-
-    @JsonProperty("bookingClass")
-    private String bookingClass;
-
-    @JsonProperty("departure")
     private LocationDTO departure;
 
-    @JsonProperty("arrival")
     private LocationDTO arrival;
+
+    private String duration;
+
+    private int stopQuantity;
+
+    //private String equipment;
+
+    private GroundOperationalInfoDTO groundOperationalInfo;
+
+    private String cabin;
+
+    private String bookingClass;
+
+    private String fareClass;
+
+    private String fareBasis;
 }

@@ -37,13 +37,14 @@ public class WebClientConfig {
     }
 
     @Bean
-    public WebClient webClient(WebClient.Builder builder) {
+    public WebClient webClient() {
 
-        return builder
+        return WebClient.builder()
             .defaultHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+            .baseUrl("https://bff-mall.maxmilhas.com.br")
             .codecs(configurer -> {
-            // Aumentando o limite do buffer de dados (NECESSÁRIO PARA A LATAM)
-            configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024); // 10 MB
+                // Aumentando o limite do buffer de dados (NECESSÁRIO PARA A LATAM)
+                configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024); // 10 MB
             })/*.filter(logRequest()) // Log de requisição
             .filter(logResponse())*/ // Log de resposta
             .build();

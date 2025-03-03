@@ -1,5 +1,6 @@
 package com.aeromiles.model.onetwothree;
 
+import com.aeromiles.model.Airport;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -28,10 +29,6 @@ public class FlightOneTwoThree {
 
     private LocalDateTime departureTime;
 
-    private String departureLocation;
-
-    private String arrivalLocation;
-
     private LocalDateTime arrivalTime;
 
     private String arrivalRegion;
@@ -47,6 +44,8 @@ public class FlightOneTwoThree {
     private Double airlinePrice;
 
     private Double bestAirlinePrice;
+
+    private int awardPrice;
 
     private Double fare123Milhas;
 
@@ -89,7 +88,7 @@ public class FlightOneTwoThree {
     private String tokenFingerprintClearsale;
 
     @ManyToOne
-    @JoinColumn(name = "search_id")
+    @JoinColumn(name = "search_id", nullable = false)
     private Search search;
 
     @OneToMany(mappedBy = "flightOneTwoThree", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -98,4 +97,19 @@ public class FlightOneTwoThree {
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "airline_one_two_three_id", referencedColumnName = "id")
     private AirlineOneTwoThree airlineOneTwoThree;
+
+    @Column(name = "departure_location", nullable = false) // Adiciona a coluna explicitamente
+    private String departureLocation;
+
+    @Column(name = "arrival_location", nullable = false) // Adiciona a coluna explicitamente
+    private String arrivalLocation;
+
+    @ManyToOne
+    @JoinColumn(name = "departure_airport", referencedColumnName = "code")
+    private Airport departureAirport;
+
+    @ManyToOne
+    @JoinColumn(name = "arrival_airport", referencedColumnName = "code")
+    private Airport arrivalAirport;
+
 }

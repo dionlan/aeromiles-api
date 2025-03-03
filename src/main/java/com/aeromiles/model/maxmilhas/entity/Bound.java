@@ -15,17 +15,20 @@ public class Bound {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "offer_id")
-    private Offer offer;
-
-    @OneToMany(mappedBy = "bound", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Segment> segments = new ArrayList<>();
-
     @Embedded
     private FareProfile fareProfile;
 
+    @Column
+    private String carrier;
+
+    @Column
+    private String validatedBy;
+
+    @Column
     private String duration;
+
+    @Column
+    private int daysDifference;
 
     @Embedded
     @AttributeOverrides({
@@ -43,5 +46,20 @@ public class Bound {
     })
     private Location arrival;
 
-    private Integer totalStops;
+    @Column
+    private int totalStops;
+
+    @Column
+    private boolean hasCheckedBags;
+
+    @Column
+    private boolean hasCarryOnBags;
+
+    @ManyToOne
+    @JoinColumn(name = "offer_id")
+    private Offer offer;
+
+    @OneToMany(mappedBy = "bound", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Segment> segments = new ArrayList<>();
+
 }

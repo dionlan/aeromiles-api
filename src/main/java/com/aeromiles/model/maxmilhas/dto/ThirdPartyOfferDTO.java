@@ -13,5 +13,5 @@ public class ThirdPartyOfferDTO {
     private String currencyCode;
 
     @JsonProperty("amount")
-    private Double amount;
+    private double amount;
 }

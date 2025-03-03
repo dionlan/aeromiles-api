@@ -17,4 +17,6 @@ public class AirlineOneTwoThree {
 
     private String codeCia;
 
+    private String airlineLogo;
+
 }

@@ -2,6 +2,7 @@ package com.aeromiles.model.onetwothree.dto;
 
 import com.aeromiles.model.onetwothree.FlightOneTwoThree;
 import com.aeromiles.model.onetwothree.Search;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
@@ -11,6 +12,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SearchDTO {
 
     @JsonProperty("SEARCH_ID")
@@ -48,14 +50,14 @@ public class SearchDTO {
         search.setLinkPromoFlightOneWay(dto.getLinkPromoFlightOneWay());
 
         if (dto.getFlights() != null) {
-            Map<String, FlightOneTwoThree> flightEntities = dto.getFlights().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey,
-                    entry -> {
-                        FlightOneTwoThree flight = FlightOneTwoThreeDTO.toEntity(entry.getValue());
-                        flight.setUniqueId(entry.getKey());
-                        return flight;
-                    }));
-            search.setFlights(flightEntities);
+            List<FlightOneTwoThree> flights = dto.getFlights().entrySet().stream()
+                .map(entry -> {
+                    FlightOneTwoThree flight = FlightOneTwoThreeDTO.toEntity(entry.getValue());
+                    flight.setUniqueId(entry.getKey());
+                    flight.setSearch(search);
+                    return flight;
+                }).collect(Collectors.toList());
+            search.setFlights(flights);
         }
 
         return search;

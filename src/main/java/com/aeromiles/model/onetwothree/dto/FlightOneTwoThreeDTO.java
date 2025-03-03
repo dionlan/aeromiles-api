@@ -1,18 +1,27 @@
 package com.aeromiles.model.onetwothree.dto;
 
+import com.aeromiles.model.maxmilhas.dto.AirportDTO;
 import com.aeromiles.model.onetwothree.FlightOneTwoThree;
+import com.aeromiles.model.onetwothree.Search;
 import com.aeromiles.util.DateUtil;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.aeromiles.service.AirportService.getAirport;
 import static java.util.Objects.isNull;
 
 @Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class FlightOneTwoThreeDTO {
 
     @JsonProperty("KEY")
@@ -68,6 +77,9 @@ public class FlightOneTwoThreeDTO {
 
     @JsonProperty("BEST_AIRLINE_PRICE")
     private Double bestAirlinePrice;
+
+    @JsonProperty("AWARD_PRICE")
+    private int awardPrice;
 
     @JsonProperty("FARE_123MILHAS")
     private Double fare123Milhas;
@@ -132,6 +144,12 @@ public class FlightOneTwoThreeDTO {
     @JsonProperty("TOKEN_FINGERPRINT_CLEARSALE")
     private String tokenFingerprintClearsale;
 
+    @JsonProperty("departure_airport")
+    private AirportDTO departureAirport;
+
+    @JsonProperty("arrival_airport")
+    private AirportDTO arrivalAirport;
+
     public static FlightOneTwoThree toEntity(FlightOneTwoThreeDTO dto) {
         FlightOneTwoThree flight = new FlightOneTwoThree();
         flight.setKey(dto.getKey());
@@ -151,6 +169,7 @@ public class FlightOneTwoThreeDTO {
         flight.setOurPriceInfant(dto.getOurPriceInfant());
         flight.setAirlinePrice(dto.getAirlinePrice());
         flight.setBestAirlinePrice(dto.getBestAirlinePrice());
+        flight.setAwardPrice(dto.getAwardPrice());
         flight.setFare123Milhas(dto.getFare123Milhas());
         flight.setAirlinePriceInfant(dto.getAirlinePriceInfant());
         flight.setTax(dto.getTax());
@@ -162,18 +181,36 @@ public class FlightOneTwoThreeDTO {
         flight.setQntStop(dto.getQntStop());
         flight.setEscale(dto.getEscale());
         flight.setDaysBetweenDepartureAndArrival(dto.getDaysBetweenDepartureAndArrival());
-        flight.setTotalFlightDuration(dto.getTotalFlightDuration());
+        flight.setTotalFlightDuration(setDurationFormatado(dto.getTotalFlightDuration()));
         flight.setTariffedBaby(dto.getTariffedBaby());
         flight.setParserName(dto.getParserName());
         flight.setHandLuggage(dto.getHandLuggage());
         flight.setIsFareBaseWithDiscount(dto.getIsFareBaseWithDiscount());
         flight.setWarningEscale(dto.getWarningEscale());
         flight.setSemiExecutive(dto.getSemiExecutive());
-        flight.setMiles(isNull(dto.getMiles()) ? 0 : dto.getMiles());
+        flight.setMiles(isNull(dto.getMiles()) ? dto.getAwardPrice() : dto.getMiles());
         flight.setTokenFingerprintClearsale(dto.getTokenFingerprintClearsale());
         flight.setAirlineOneTwoThree(AirlineOneTwoThreeDTO.toEntity(dto.getAirline()));
         flight.setStops(dto.getStops().stream().map(StopDTO::toEntity).collect(Collectors.toList()));
+        if(isNull(getAirport(dto.getArrivalLocation()))){
+            System.out.println(dto.getArrivalLocation());
+        }else{
+            flight.setArrivalAirport(getAirport(dto.getArrivalLocation()));
+        }
+        flight.setDepartureAirport(getAirport(dto.getDepartureLocation()));
         return flight;
     }
 
+    public static String setDurationFormatado(String duration) {
+        // Verifica se a string já está no formato "Xh YYmin"
+        if (duration.matches("\\d+h \\d{2}min")) {
+            return duration; // Retorna a string original sem modificações
+        }
+
+        // Caso contrário, faz a conversão
+        String[] parts = duration.split(":");
+        int hours = Integer.parseInt(parts[0]);
+        int minutes = Integer.parseInt(parts[1]);
+        return String.format("%dh %02dmin", hours, minutes);
+    }
 }

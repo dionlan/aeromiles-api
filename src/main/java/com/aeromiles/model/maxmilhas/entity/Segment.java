@@ -12,16 +12,31 @@ public class Segment {
     private Long id;
 
     @Column(nullable = false)
-    private String operatingFlightNumber;
+    private String marketingAirlineCode;
 
     @Column(nullable = false)
+    private String operatingAirlineCode;
+
+    @Column(nullable = false)
+    private String marketingFlightNumber;
+
+    @Column(nullable = false)
+    private String operatingFlightNumber;
+
+    @Column(name = "segment_duration", nullable = false)
     private String duration;
 
     @Column(nullable = false)
-    private Integer stopQuantity;
+    private int stopQuantity;
+
+    /*@Column
+    private String equipment;*/
 
     @Column(nullable = false)
     private String idSegment;
+
+    @Embedded
+    private GroundOperationalInfo groundOperationalInfo;
 
     @Column(nullable = false)
     private String cabin;
@@ -29,23 +44,29 @@ public class Segment {
     @Column(nullable = false)
     private String bookingClass;
 
+    @Column
+    private String fareClass;
+
+    @Column
+    private String fareBasis;
+
     @ManyToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "bound_id")
     private Bound bound;
 
     @Embedded
     @AttributeOverrides({
-            @AttributeOverride(name = "locationCode", column = @Column(name = "departure_location_code")),
-            @AttributeOverride(name = "dateTime", column = @Column(name = "departure_date_time")),
-            @AttributeOverride(name = "terminal", column = @Column(name = "departure_terminal"))
+        @AttributeOverride(name = "locationCode", column = @Column(name = "departure_location_code")),
+        @AttributeOverride(name = "dateTime", column = @Column(name = "departure_date_time")),
+        @AttributeOverride(name = "terminal", column = @Column(name = "departure_terminal"))
     })
     private Location departure;
 
     @Embedded
     @AttributeOverrides({
-            @AttributeOverride(name = "locationCode", column = @Column(name = "arrival_location_code")),
-            @AttributeOverride(name = "dateTime", column = @Column(name = "arrival_date_time")),
-            @AttributeOverride(name = "terminal", column = @Column(name = "arrival_terminal"))
+        @AttributeOverride(name = "locationCode", column = @Column(name = "arrival_location_code")),
+        @AttributeOverride(name = "dateTime", column = @Column(name = "arrival_date_time")),
+        @AttributeOverride(name = "terminal", column = @Column(name = "arrival_terminal"))
     })
     private Location arrival;
 

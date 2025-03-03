@@ -1,12 +1,14 @@
 package com.aeromiles.model.maxmilhas.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 public class FareProfileDTO {
 
-    @JsonProperty("marketingName")
+    private List<String> baggageAllowance;
+    private List<String> fareRules;
     private String marketingName;
 
 }

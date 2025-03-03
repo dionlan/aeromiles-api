@@ -1,12 +1,15 @@
 package com.aeromiles.service;
 
+import com.aeromiles.configuration.HttpClientConfig;
 import com.aeromiles.model.onetwothree.FlightOneTwoThree;
 import com.aeromiles.model.onetwothree.Search;
-import com.aeromiles.model.onetwothree.dto.RootData;
-import com.aeromiles.model.onetwothree.dto.SearchDTO;
+import com.aeromiles.model.onetwothree.converter.FlightOneTwoThreeConverter;
+import com.aeromiles.model.onetwothree.dto.*;
 import com.aeromiles.repository.SearchRepository;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -23,6 +26,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +36,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 
 @Service
 public class OneTwoThreeService {
@@ -38,9 +46,11 @@ public class OneTwoThreeService {
 
     @Autowired
     private SearchRepository searchRepository;
-    private static final String API_URL_TEMPLATE = "https://123milhas.com/v2/busca?de=%s&para=%s&ida=%s&adultos=%d&criancas=%d&bebes=%d&classe=%d&is_loyalty=%d";
+    private static final String API_URL_TEMPLATE = "https://123milhas.com/api/v3/flight/search?iata_from=%s&iata_to=%s&date_outbound=%s&adults=%d&children=%d&babies=%d&class_service=%d&is_loyalty=%d";
     private ObjectMapper objectMapper = new ObjectMapper();
     private List<FlightOneTwoThree> flights = new ArrayList<>();
+
+    private FlightOneTwoThreeConverter flightOneTwoThreeConverter = new FlightOneTwoThreeConverter();
 
     public List<FlightOneTwoThree> save(String departureAirport, String arrivalAirport, String departureTime,
                                         int adults, int children, int babies, int classType, int isLoyalty) {
@@ -154,7 +164,16 @@ public class OneTwoThreeService {
         }
     }
 
-    private void processResponse(String responseContent) {
+    /*private static final OkHttpClient client = new OkHttpClient.Builder()
+        .connectTimeout(Duration.ofSeconds(10)) // 🔹 Tempo máximo para conectar
+        .readTimeout(Duration.ofSeconds(30)) // 🔹 Tempo máximo de espera pela resposta
+        .writeTimeout(Duration.ofSeconds(30)) // 🔹 Tempo máximo de envio de dados
+        .connectionPool(new ConnectionPool(5, 5, TimeUnit.MINUTES)) // Pool de 5 conexões
+        .build();*/
+
+    private static final OkHttpClient client = HttpClientConfig.createClient();
+
+    public void processResponse(String responseContent) {
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         try {
             RootData rootData = objectMapper.readValue(responseContent, RootData.class);
@@ -167,5 +186,183 @@ public class OneTwoThreeService {
             System.err.println("ERRO AO PROCESSA RESPOSTA!!!!: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static final int MAX_RETRIES = 5;
+
+    public void searchFlights(String departureAirport, String arrivalAirport, String departureDate,
+                              Integer adults, Integer children, Integer babies,
+                              Integer classService, Integer isLoyalty) {
+        String API_URL = String.format(API_URL_TEMPLATE, departureAirport, arrivalAirport, departureDate, adults,
+                children, babies, classService, isLoyalty);
+
+        String authorizationToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImMzODQ0MTY3YTg5MGNmYjdkYjk4NzYzYjRkMjYxM2QwZjA3ODFkZTdkZmQxNDU5MmVkZDJmZTg2NTc2YTZhZGY0OTUzZGUzZTc2OGVhOTU2In0.eyJhdWQiOiIzIiwianRpIjoiYzM4NDQxNjdhODkwY2ZiN2RiOTg3NjNiNGQyNjEzZDBmMDc4MWRlN2RmZDE0NTkyZWRkMmZlODY1NzZhNmFkZjQ5NTNkZTNlNzY4ZWE5NTYiLCJpYXQiOjE3NDAyNzMzMjMsIm5iZiI6MTc0MDI3MzMyMywiZXhwIjoxNzQwMzU5NzIzLCJzdWIiOiIiLCJzY29wZXMiOltdfQ.upIU0utHj-jyiPZYjiB9ziD4OCPNDovlsy3KRqm_-iOUa0QC0gM0uaR7YaR_fi1uI132y0gfV6ewSKaXoJbKNptLqvSa0CcEkaTiiQOC8q9CV8Zyotqe4Tb1o0zkQwIHCRyUwcBgNrc3KjixForre72qpW-33LqiOhGizovXRjsNaE1UcJ06-1Xah4LHIK3bQ1znlpne9EUZU4NU4GtNfbRPTuAHZK8geJ9sMMsrOmrNcs7Fjn_9c7_G3sJDxf3vifXeCsdIQMsp73Go_HZkeKZXs-Xe7sp7jsZ9RuZv43v1w4Z5XIWw0TI6NbmEeqjvHIgLU0Q_dCChy3IJGa492e6fyAJI1tP2k0i_zAF0l7NVVOPbzeNZiTF3GzMSBgCt94JTVhwQm-iCmT7-2pH1jT7BFy87ovEgvjjlhsi-pC3MnwARXWM7vPy2LyxZIyHfwSDCT8Mi6JrkHikp7GrquxspLyKFwL22Mg6M3hKC2PZasS-cp6axwb2xC9cmgMT_fYhj6NTYMraukFNdoO07Y2RgtItVGLAG5P5SnCdppHvvwobggVzBxwfkdTXbewpkzEtXWOT4cLuI_3oP-EfcO2GbRBGExtstubym1GgG805BCjVPs6RnZfMSsYrpPSQyER1csgB8TofzylHcIX16RIepk7WfjTlyt34XxPEwikc";
+        String sharedId = "shared_id_7108_67ac18a730e687.48545874";
+
+        Request request = new Request.Builder()
+            .url(API_URL)
+            .get()
+            .addHeader("shared-id", sharedId)
+            .addHeader("authorization", "Bearer "+authorizationToken)
+            .addHeader("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
+            .addHeader("accept", "*/*")
+            .addHeader("cache-control", "no-cache")
+            .addHeader("host", "123milhas.com")
+            .addHeader("accept-encoding", "gzip, deflate, br")
+            .addHeader("connection", "keep-alive")
+            .addHeader("cookie", "WTPERSIST=; laravel_session=MIw3DXUTPGXOrG3QagzNzgEs3lIqeTkdXWcTnwiC; __cf_bm=uPrabp0g.DtHXkBXy9GMTT3UOVJW26X08Nsk46mCaAA-1739535300-1.0.1.1-7B0_qsjb3bMy4RkzBmKFYrhgAJfLE5foIj1DHyQ5xBzlXCYo0W6BdIJsA3B_UFrZ0MwB5RlKI4jjsbD_sGKKLg; AWSALB=4obCKAwqcmAH4hQiuL4wmq9adKc7Kw+yQNoLGUPS0QwXq/h66wfIiHIkh0ZId56+0Nx2i9opEX/lo3mcDmkWXgKhZHxqpRW3Yy7heoo1lSwnvx2W0hN8Tb/mlRbB; AWSALBCORS=4obCKAwqcmAH4hQiuL4wmq9adKc7Kw+yQNoLGUPS0QwXq/h66wfIiHIkh0ZId56+0Nx2i9opEX/lo3mcDmkWXgKhZHxqpRW3Yy7heoo1lSwnvx2W0hN8Tb/mlRbB")
+            .build();
+
+        boolean success = false;
+        int attempt = 0;
+        long waitTime = 1_000; // 1 segundo inicial
+        long[] retryDelays = {100, 200, 400, 800};
+
+        while (!success && attempt < MAX_RETRIES) {
+            try (okhttp3.Response response = client.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    String responseBody;
+                    if ("gzip".equalsIgnoreCase(response.header("Content-Encoding"))) {
+                        try (GZIPInputStream gzip = new GZIPInputStream(response.body().byteStream());
+                             BufferedReader br = new BufferedReader(new InputStreamReader(gzip))) {
+                            responseBody = br.lines().collect(Collectors.joining());
+                        }
+                    } else {
+                        responseBody = response.body().string();
+                    }
+                    // 🔹 Processa os dados aqui antes de continuar
+                    System.out.println("✅ Consulta finalizada para " + arrivalAirport + " no dia " + departureDate);
+
+                    RootData rootData = objectMapper.readValue(responseBody, RootData.class);
+                    flights.addAll(rootData.getData().toEntityList());
+
+                    Search search = SearchDTO.toEntity(rootData.getData());
+                    searchRepository.save(search);
+                    System.out.println("====================***************************DADOS PROCESSADOS E PERSISTIDOS COM SUCESSO!!!!!!!!!!!!!!!!!!!!!!!!!");
+                    success = true;
+
+                } else if (response.code() == 429) { // 🛑 Rate Limit
+                    String retryAfter = response.header("Retry-After");
+                    System.out.println("⚠️ RETRY AFTER " + retryAfter);
+                    if (retryAfter != null) {
+                        waitTime = Long.parseLong(retryAfter) * 1_000; // Convertendo segundos para milissegundos
+                    } else {
+                        waitTime *= 1; // Aumenta exponencialmente caso o header não esteja presente
+                    }
+                    System.out.println("⚠️ Erro 429 - Aguardando " + (waitTime / 1_000) + " segundos antes de tentar novamente...");
+                } else if (response.code() == 401) {
+                    System.out.println("❌ Erro na requisição: " + response.code() + " - " + response.message());
+                    String limit = response.header("X-RateLimit-Limit");
+                    String remaining = response.header("X-RateLimit-Remaining");
+                    System.out.println("⚠️ RateLimit LIMIT " + limit);
+                    System.out.println("⚠️ RateLimit REMAINING " + remaining);
+                } else {
+                    System.out.println("❌ Erro na requisição: " + response.code() + " - " + response.message());
+                    return; // Encerra a tentativa e evita loop infinito caso seja um erro definitivo
+                }
+            } catch (IOException e) {
+                System.out.println("❌ Erro de conexão: " + e.getMessage());
+            }
+
+            attempt++;
+            try {
+                Thread.sleep(waitTime); // Aguarda antes de tentar novamente
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    public ResponseDTO searchFlightsExterna(String departureAirport, String arrivalAirport, String departureDate,
+                              Integer adults, Integer children, Integer babies,
+                              Integer classService, Integer isLoyalty) {
+        String API_URL = String.format(API_URL_TEMPLATE, departureAirport, arrivalAirport, departureDate, adults,
+                children, babies, classService, isLoyalty);
+
+        String authorizationToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjNiNDE3Y2UzZGNiZWUyNThiYzUwYzNjZjJiNGE1NTE3MTAxMGUxY2UyODJkMjNlZDRkOTIwNmY0MjU2YmRjNzg2YjdkNzA0MWU2ODBmNmNkIn0.eyJhdWQiOiIzIiwianRpIjoiM2I0MTdjZTNkY2JlZTI1OGJjNTBjM2NmMmI0YTU1MTcxMDEwZTFjZTI4MmQyM2VkNGQ5MjA2ZjQyNTZiZGM3ODZiN2Q3MDQxZTY4MGY2Y2QiLCJpYXQiOjE3NDAwMTUzMzMsIm5iZiI6MTc0MDAxNTMzMywiZXhwIjoxNzQwMTAxNzMzLCJzdWIiOiIiLCJzY29wZXMiOltdfQ.HMBa7iFSU_kuRi4PFsi0A9U_eDR5GkF3AyKA6FS5ck2Ua1tUw2SCSXYxYUQ7gnyHe42MBhIW4MRxG3HJTEkP2DqEot4JOmODsg8lUHLjXbzz7V5a_1j1ra31n5aMhkFwjQ7CH-paGy-UpRBoIRSWp33qrheXsayecC2GAqUpDFdaKpqGxB3wLqj1JaSouLp_iun-VUB2HNJSI0TDdACf0njMWLiy1DjU7N8FjXhQ3bdPlBvap82c7ZqS1R1_xndJZGIZMGh3kOIqRHTL6uyr_CAi1RFYr9JX7nD2A5fUreymCGZF5ddb0bX5Zc1S1J6iEpVhti3U2q_xvtFvxVI527BUq6C7ED5o61aAnYKwPnPqZhlu0iJQ9Zo4BNNev9iptNFbnFIOoQHR-Hbp6JwkahztlhLqN3gCJ5ovvWrruZJf_IdXfj1OhlPdbM5ZVdcPyq3A9arei8nAG_BIJ6Tuzhqk7j4VvMFQFhjYszpouRNp23uONpOaNytb3TrOCnhOMASpR7nx5g1pvRkCqwfyCnqbk5DEs3HuULoRuGz6QPHIufgvOhQnsCleEjMYImOGnCNymzzuHpn8PIg3l0AKlyJs_-H1X-XWV6G9DYpvfp6AGa9oG0CMFGDLEisqewRoHaHRjrJ_DXIz5JtpioUIWZLF8YPP7htgRQ-eb5whyH4";
+        String sharedId = "shared_id_7108_67ac18a730e687.48545874";
+        ResponseDTO responseDTO = new ResponseDTO();
+        Request request = new Request.Builder()
+            .url(API_URL)
+            .get()
+            .addHeader("shared-id", sharedId)
+            .addHeader("authorization", "Bearer "+authorizationToken)
+            .addHeader("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
+            .addHeader("accept", "*/*")
+            .addHeader("cache-control", "no-cache")
+            .addHeader("host", "123milhas.com")
+            .addHeader("accept-encoding", "gzip, deflate, br")
+            .addHeader("connection", "keep-alive")
+            .addHeader("cookie", "WTPERSIST=; laravel_session=MIw3DXUTPGXOrG3QagzNzgEs3lIqeTkdXWcTnwiC; __cf_bm=uPrabp0g.DtHXkBXy9GMTT3UOVJW26X08Nsk46mCaAA-1739535300-1.0.1.1-7B0_qsjb3bMy4RkzBmKFYrhgAJfLE5foIj1DHyQ5xBzlXCYo0W6BdIJsA3B_UFrZ0MwB5RlKI4jjsbD_sGKKLg; AWSALB=4obCKAwqcmAH4hQiuL4wmq9adKc7Kw+yQNoLGUPS0QwXq/h66wfIiHIkh0ZId56+0Nx2i9opEX/lo3mcDmkWXgKhZHxqpRW3Yy7heoo1lSwnvx2W0hN8Tb/mlRbB; AWSALBCORS=4obCKAwqcmAH4hQiuL4wmq9adKc7Kw+yQNoLGUPS0QwXq/h66wfIiHIkh0ZId56+0Nx2i9opEX/lo3mcDmkWXgKhZHxqpRW3Yy7heoo1lSwnvx2W0hN8Tb/mlRbB")
+            .build();
+
+        boolean success = false;
+        int attempt = 0;
+        long waitTime = 1_000;
+
+        while (!success && attempt < MAX_RETRIES) {
+            try (okhttp3.Response response = client.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    String responseBody;
+                    if ("gzip".equalsIgnoreCase(response.header("Content-Encoding"))) {
+                        try (GZIPInputStream gzip = new GZIPInputStream(response.body().byteStream());
+                             BufferedReader br = new BufferedReader(new InputStreamReader(gzip))) {
+                            responseBody = br.lines().collect(Collectors.joining());
+                        }
+                    } else {
+                        responseBody = response.body().string();
+                    }
+                    // 🔹 Processa os dados aqui antes de continuar
+                    System.out.println("✅ Consulta finalizada para " + arrivalAirport + " no dia " + departureDate);
+
+                    RootData rootData = objectMapper.readValue(responseBody, RootData.class);
+                    flights.addAll(rootData.getData().toEntityList());
+
+                    Search search = SearchDTO.toEntity(rootData.getData());
+                    //searchRepository.save(search);
+
+                    List<FlightOneTwoThree> flights = search.getFlights();
+
+                    List<FlightOneTwoThreeDTO> flightsResponse = flights.stream()
+                        .map(flightOneTwoThreeConverter::convertToDTO)
+                        .collect(Collectors.toList());
+
+                    FlightOneTwoThreeResponseDTO responseExterna = new FlightOneTwoThreeResponseDTO();
+                    responseExterna.setFlights(flightsResponse.stream().map(flightOneTwoThreeConverter::convertToDTOResponse).collect(Collectors.toList()));
+                    responseDTO.setFlights(responseExterna.getFlights());
+
+                    System.out.println("====================***************************DADOS PROCESSADOS E PERSISTIDOS COM SUCESSO!!!!!!!!!!!!!!!!!!!!!!!!!");
+                    success = true;
+
+                } else if (response.code() == 429) { // 🛑 Rate Limit
+                    String retryAfter = response.header("Retry-After");
+                    System.out.println("⚠️ RETRY AFTER " + retryAfter);
+                    if (retryAfter != null) {
+                        waitTime = Long.parseLong(retryAfter) * 1_000; // Convertendo segundos para milissegundos
+                    } else {
+                        waitTime *= 1; // Aumenta exponencialmente caso o header não esteja presente
+                    }
+                    System.out.println("⚠️ Erro 429 - Aguardando " + (waitTime / 1_000) + " segundos antes de tentar novamente...");
+                } else if (response.code() == 401) {
+                    System.out.println("❌ Erro na requisição: " + response.code() + " - " + response.message());
+                    String limit = response.header("X-RateLimit-Limit");
+                    String remaining = response.header("X-RateLimit-Remaining");
+                    System.out.println("⚠️ RateLimit LIMIT " + limit);
+                    System.out.println("⚠️ RateLimit REMAINING " + remaining);
+                } else {
+                    System.out.println("❌ Erro na requisição: " + response.code() + " - " + response.message());
+                }
+            } catch (IOException e) {
+                System.out.println("❌ Erro de conexão: " + e.getMessage());
+            }
+
+            attempt++;
+            try {
+                Thread.sleep(waitTime); // Aguarda antes de tentar novamente
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        return responseDTO;
     }
 }

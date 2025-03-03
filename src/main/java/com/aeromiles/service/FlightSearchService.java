@@ -3,19 +3,25 @@ package com.aeromiles.service;
 import com.aeromiles.model.maxmilhas.SearchResponse;
 import com.aeromiles.model.maxmilhas.dto.*;
 import com.aeromiles.model.maxmilhas.entity.*;
+import com.aeromiles.model.onetwothree.FlightOneTwoThree;
+import com.aeromiles.model.onetwothree.converter.FlightOneTwoThreeConverter;
+import com.aeromiles.model.onetwothree.dto.FlightOneTwoThreeDTO;
+import com.aeromiles.model.onetwothree.dto.FlightOneTwoThreeResponseDTO;
+import com.aeromiles.model.onetwothree.dto.ResponseDTO;
+import com.aeromiles.repository.FlightOneTwoThreeRepository;
 import com.aeromiles.repository.OfferRepository;
+import com.aeromiles.util.DateUtil;
 import com.aeromiles.util.ResponseParser;
+import com.aeromiles.util.StringUtil;
 import jakarta.transaction.Transactional;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,11 +30,19 @@ import java.util.stream.Collectors;
 public class FlightSearchService {
 
     @Autowired
+    private FlightOneTwoThreeRepository flightOneTwoThreeRepository;
+
+    @Autowired
     private WebClient webClient;
 
     @Autowired
     private OfferRepository offerRepository;
 
+    @Autowired
+    private OneTwoThreeService oneTwoThreeService;
+
+    private FlightOneTwoThreeConverter flightOneTwoThreeConverter = new FlightOneTwoThreeConverter();
+    private static final String FLIGHT_SEARCH_BASE_URL = "https://www.maxmilhas.com.br/busca-passagens-aereas";
     public String searchAirlines() {
         String url = "https://www.maxmilhas.com.br/busca-passagens-aereas/RT/BSB/CGH/2025-01-29/2025-02-04/1/0/0/EC";
         return webClient
@@ -38,6 +52,17 @@ public class FlightSearchService {
             .bodyToMono(String.class)
             .map(this::extractJsonFromHtml) // Usando o método com Jsoup
             .block(); // Bloqueando para obter a resposta síncrona
+    }
+
+    public String searchAirlines(String origem, String destino, String dataPartida, int quantidadeAdultos){
+        String url = String.format("%s/OW/%s/%s/%s/%d/0/0/EC", FLIGHT_SEARCH_BASE_URL, origem, destino, dataPartida, quantidadeAdultos);
+        return webClient
+            .get()
+            .uri(url)
+            .retrieve()
+            .bodyToMono(String.class)
+            .map(this::extractJsonFromHtml)
+            .block();
     }
 
     public String extractJsonFromHtml(String html) {
@@ -62,6 +87,8 @@ public class FlightSearchService {
             .uri(uriBuilder -> uriBuilder.path(url).build())
             .retrieve()
             .bodyToMono(SearchResponse.class)
+            .timeout(Duration.ofSeconds(30)) // Define um timeout de 10 segundos
+            .retry(3)
             .map(SearchResponse::getOffers)
             .block();
 
@@ -134,6 +161,7 @@ public class FlightSearchService {
         offer.setIdOffer(dto.getIdOffer());
         offer.setComparativeLevel(dto.getComparativeLevel());
         offer.setType(dto.getType());
+        offer.setCia(StringUtil.extractAirlineName(dto.getIdOffer()));
 
         List<ThirdPartyOffer> thirdPartyOffers = dto.getThirdPartyOffers()
             .stream()
@@ -153,7 +181,29 @@ public class FlightSearchService {
 
         bounds.forEach(bound -> bound.setOffer(offer));
 
+        if (dto.getPriceDetails() != null) {
+            PriceDetails priceDetails = convertPriceDetailsToEntity(dto.getPriceDetails());
+            offer.setPriceDetails(priceDetails);
+        }
+
         return offer;
+    }
+
+    private PriceDetails convertPriceDetailsToEntity(PriceDetailsDTO dto) {
+        PriceDetails priceDetails = new PriceDetails();
+        priceDetails.setTotalPrices(convertTotalPricesToEntity(dto.getTotalPrices()));
+        return priceDetails;
+    }
+
+    private TotalPrices convertTotalPricesToEntity(TotalPricesDTO dto) {
+        TotalPrices totalPrices = new TotalPrices();
+        totalPrices.setBase(dto.getBase());
+        totalPrices.setTotal(dto.getTotal());
+        totalPrices.setCurrencyCode(dto.getCurrencyCode());
+        totalPrices.setTotalTaxes(dto.getTotalTaxes());
+        totalPrices.setTotalFees(dto.getTotalFees());
+        totalPrices.setTotalDiscounts(dto.getTotalDiscounts());
+        return totalPrices;
     }
 
     private ThirdPartyOffer convertThirdPartyOfferToEntity(ThirdPartyOfferDTO dto) {
@@ -166,11 +216,16 @@ public class FlightSearchService {
 
     private Bound convertBoundToEntity(BoundDTO dto) {
         Bound bound = new Bound();
+        bound.setCarrier(dto.getCarrier());
+        bound.setValidatedBy(dto.getValidatedBy());
         bound.setDuration(dto.getDuration());
+        bound.setDaysDifference(dto.getDaysDifference());
         bound.setFareProfile(convertFareProfileToEntity(dto.getFareProfile()));
         bound.setDeparture(convertLocationToEntity(dto.getDeparture()));
         bound.setArrival(convertLocationToEntity(dto.getArrival()));
         bound.setTotalStops(dto.getTotalStops());
+        bound.setHasCheckedBags(dto.isHasCheckedBags());
+        bound.setHasCarryOnBags(dto.isHasCarryOnBags());
 
         List<Segment> segments = dto.getSegments()
             .stream()
@@ -186,6 +241,8 @@ public class FlightSearchService {
             return null;
         }
         FareProfile fareProfile = new FareProfile();
+        fareProfile.setBaggageAllowance(dto.getBaggageAllowance());
+        fareProfile.setFareRules(dto.getFareRules());
         fareProfile.setMarketingName(dto.getMarketingName());
         return fareProfile;
     }
@@ -193,12 +250,19 @@ public class FlightSearchService {
 
     private Segment convertSegmentToEntity(SegmentDTO dto, Bound bound) {
         Segment segment = new Segment();
+        segment.setMarketingAirlineCode(dto.getMarketingAirlineCode());
+        segment.setOperatingAirlineCode(dto.getOperatingAirlineCode());
+        segment.setMarketingFlightNumber(dto.getMarketingFlightNumber());
         segment.setOperatingFlightNumber(dto.getOperatingFlightNumber());
         segment.setDuration(dto.getDuration());
         segment.setStopQuantity(dto.getStopQuantity());
-        segment.setIdSegment(dto.getId());
+        //.setEquipment(dto.getEquipment());
+        segment.setIdSegment(dto.getIdSegment());
+        segment.setGroundOperationalInfo(convertGroundOperationalInfoToEntity(dto.getGroundOperationalInfo()));
         segment.setCabin(dto.getCabin());
         segment.setBookingClass(dto.getBookingClass());
+        segment.setFareClass(dto.getFareClass());
+        segment.setFareBasis(dto.getFareBasis());
         segment.setBound(bound); // Relaciona o Segment ao Bound atual
 
         segment.setDeparture(convertLocationToEntity(dto.getDeparture()));
@@ -222,13 +286,25 @@ public class FlightSearchService {
         return location;
     }
 
+    private GroundOperationalInfo convertGroundOperationalInfoToEntity(GroundOperationalInfoDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+        GroundOperationalInfo info = new GroundOperationalInfo();
+        info.setType(dto.getType());
+        info.setDuration(dto.getDuration());
+        info.setHasChangeOfAirportAfter(dto.isHasChangeOfAirportAfter());
+        info.setNextBoardingPoint(dto.getNextBoardingPoint());
+        return info;
+    }
+
     @Transactional
     public void saveOffer(Offer offer) {
         //offerRepository.save(offer);
     }
 
 
-    public String searchFlightOneTwoThree(String iataFrom, String iataTo, String dateOutbound, String dateInbound) {
+    public String searchFlightOneTwoThree(String codeFrom, String codeTo, String dateOutbound, String dateInbound) {
         String url = "https://123milhas.com/v2/busca";
 
         // Defina os parâmetros de consulta
@@ -259,5 +335,26 @@ public class FlightSearchService {
             }).block();
 
         return responseMono;
+    }
+
+    public ResponseDTO search(String fromCity, String toCity, String departureDate, boolean consultaExterna) {
+
+        if(consultaExterna){
+            return oneTwoThreeService.searchFlightsExterna(fromCity, toCity, departureDate, 1, 0, 0, 3, 1);
+        }
+
+        LocalDate departureDateLocalDate = DateUtil.stringToLocalDate(departureDate);
+
+        List<FlightOneTwoThree> flights = flightOneTwoThreeRepository.findFlightsByLocationsAndDate(fromCity, toCity, departureDateLocalDate);
+
+        List<FlightOneTwoThreeDTO> flightsResponse = flights.stream()
+            .map(flightOneTwoThreeConverter::convertToDTO)
+            .collect(Collectors.toList());
+
+        FlightOneTwoThreeResponseDTO response = new FlightOneTwoThreeResponseDTO();
+        response.setFlights(flightsResponse.stream().map(flightOneTwoThreeConverter::convertToDTOResponse).collect(Collectors.toList()));
+        ResponseDTO responseDTO = new ResponseDTO();
+        responseDTO.setFlights(response.getFlights());
+        return responseDTO;
     }
 }

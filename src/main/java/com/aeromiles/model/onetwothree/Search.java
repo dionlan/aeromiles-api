@@ -2,7 +2,7 @@ package com.aeromiles.model.onetwothree;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import java.util.Map;
+import java.util.List;
 
 @Entity
 @Data
@@ -26,5 +26,5 @@ public class Search {
     private String linkPromoFlightOneWay;
 
     @OneToMany(mappedBy = "search", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Map<String, FlightOneTwoThree> flights;
+    private List<FlightOneTwoThree> flights;
 }

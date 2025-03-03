@@ -1,6 +1,5 @@
 package com.aeromiles.model.maxmilhas.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.util.List;
@@ -8,22 +7,26 @@ import java.util.List;
 @Data
 public class BoundDTO {
 
-    @JsonProperty("segments")
-    private List<SegmentDTO> segments;
+    private String carrier;
 
-    @JsonProperty("fareProfile")
-    private FareProfileDTO fareProfile;
+    private String validatedBy;
 
-    @JsonProperty("duration")
     private String duration;
 
-    @JsonProperty("departure")
+    private int daysDifference;
+
     private LocationDTO departure;
 
-    @JsonProperty("arrival")
     private LocationDTO arrival;
 
-    @JsonProperty("totalStops")
-    private Integer totalStops;
+    private boolean hasCheckedBags;
+
+    private boolean hasCarryOnBags;
+
+    private int totalStops;
+
+    private List<SegmentDTO> segments;
+
+    private FareProfileDTO fareProfile;
 
 }

@@ -24,6 +24,13 @@ public class DateUtil {
         return null;
     }
 
+    public static String localDateTimeToString(LocalDateTime dateTime) {
+        if (dateTime != null) {
+            return dateTime.format(FORMATTER);
+        }
+        return null;
+    }
+
     public static LocalDateTime stringToLocalDateTimeUTC(String data) {
         if (isNotBlank(data)) {
             try {
@@ -40,7 +47,7 @@ public class DateUtil {
             return null;
         }
         try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
             return LocalDate.parse(data, formatter);
         } catch (DateTimeParseException e) {
             return null;
@@ -59,5 +66,27 @@ public class DateUtil {
             return null;
         }
         return localDate.atStartOfDay(); // Define a hora como 00:00:00
+    }
+
+    public static String stringToLocalDateString(String dataHora){
+        if (isNotBlank(dataHora)) {
+            try {
+                return LocalDate.parse(dataHora, FORMATTER).toString();
+            } catch (DateTimeParseException e) {
+                throw new IllegalArgumentException("Data e hora inválidas: " + dataHora, e);
+            }
+        }
+        return null;
+    }
+
+    public static String stringToTimeString(String dataHora){
+        if (isNotBlank(dataHora)) {
+            try {
+                return LocalDateTime.parse(dataHora, FORMATTER).toLocalTime().toString();
+            } catch (DateTimeParseException e) {
+                throw new IllegalArgumentException("Data e hora inválidas: " + dataHora, e);
+            }
+        }
+        return null;
     }
 }
