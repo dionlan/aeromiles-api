@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 @Data
-@Entity
+@Entity(name = "segment_max")
 public class Segment {
 
     @Id

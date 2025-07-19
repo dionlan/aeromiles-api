@@ -1,6 +1,6 @@
 package com.aeromiles;
 
-import com.aeromiles.service.FlightSearchService;
+import com.aeromiles.service.OneTwoThreeService;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -18,23 +18,26 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @SpringBootApplication
-public class AeromilesApplicationMaxMilhasApi {
+public class AeromilesApplicationTesteAzulApi {
 
+    /*public static void main(String[] args) {
+        SpringApplication.run(AeromilesApplicationApi.class, args);
+    }*/
     public static void main(String[] args) {
-        ConfigurableApplicationContext context = SpringApplication.run(AeromilesApplicationMaxMilhasApi.class, args);
-        FlightSearchService flightSearchService = context.getBean(FlightSearchService.class);
+        ConfigurableApplicationContext context = SpringApplication.run(AeromilesApplicationTesteAzulApi.class, args);
+        OneTwoThreeService oneTwoThreeService = context.getBean(OneTwoThreeService.class);
 
         Instant startTime = Instant.now();
-        ExecutorService executorService = Executors.newFixedThreadPool(10); // 🔹 Para rodar requisições em paralelo
+        ExecutorService executorService = Executors.newFixedThreadPool(25); // 🔹 Para rodar requisições em paralelo
 
         String departureAirport = "BSB";
-        List<String> arrivalAirports = List.of("GDR");
-                /*List.of("MIA", "MCO", "SCL", "EZE"*//*, "SDU", "GIG", "MCZ", "JPA", "FOR", "NAT", "MIA", "MCO", "EZE", "SCL", "CDG", "YYZ" "FLN", "SDU", "GIG", "GRU", "CNF", "VCP", "REC", "SSA", "POA", "FOR",
+        List<String> arrivalAirports = List.of("GIG", "SDU");
+/*                List.of("MIA", "MCO", "SCL", "EZE"*//*"FLN", "SDU", "GIG, MCZ, JPA, FOR, NAT", "GRU", "CNF", "VCP", "REC", "SSA", "POA", "FOR",
                 "BEL", "VIX", "GYN", "MAO", "CGB", "IGU", "NAT", "CGH", "MCZ", "JPA", "SLZ",
                 "CWB", "AJU", "BPS", "TFF", "IOS", "PMW", "THE", "BVB", "RBR", "PNZ"*//*);*/
 
-        LocalDate startDate = LocalDate.of(2025, 9, 10);
-        LocalDate endDate = LocalDate.of(2025, 11, 20);
+        LocalDate startDate = LocalDate.of(2025, 9, 20);
+        LocalDate endDate = LocalDate.of(2025, 11, 9);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
         List<CompletableFuture<Void>> tasks = new CopyOnWriteArrayList<>();
@@ -51,12 +54,7 @@ public class AeromilesApplicationMaxMilhasApi {
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     System.out.println("📡 Pesquisando voos para " + arrivalAirport + " no dia " + departureTime + " (" + currentProgress + "/" + totalDays + ")");
 
-                    String response = flightSearchService.searchAirlines(departureAirport, arrivalAirport, departureTime,1);
-                    String searchId = flightSearchService.getSearchIdFromResponse(response);
-                    List<String> airlines = flightSearchService.parseAirlines(response);
-                    for (String airline : airlines) {
-                        flightSearchService.searchFlightsByAirline(airline, searchId);
-                    }
+                    oneTwoThreeService.searchFlights(departureAirport, arrivalAirport, departureTime, 1, 0, 0, 3, 1);
 
                     System.out.println("✅ Consulta finalizada para " + arrivalAirport + " no dia " + departureTime);
                 }, executorService);
@@ -65,6 +63,7 @@ public class AeromilesApplicationMaxMilhasApi {
             }
         }
 
+        // 🔹 Esperar todas as threads finalizarem antes de encerrar a aplicação
         CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
 
         executorService.shutdown();

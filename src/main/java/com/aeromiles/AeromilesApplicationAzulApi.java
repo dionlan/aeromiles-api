@@ -1,6 +1,8 @@
 package com.aeromiles;
 
-import com.aeromiles.service.FlightSearchService;
+import com.aeromiles.service.AzulService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -10,61 +12,72 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @SpringBootApplication
-public class AeromilesApplicationMaxMilhasApi {
+public class AeromilesApplicationAzulApi {
+
+    private static final Logger logger = LoggerFactory.getLogger(AeromilesApplicationAzulApi.class);
 
     public static void main(String[] args) {
-        ConfigurableApplicationContext context = SpringApplication.run(AeromilesApplicationMaxMilhasApi.class, args);
-        FlightSearchService flightSearchService = context.getBean(FlightSearchService.class);
+        ConfigurableApplicationContext context = SpringApplication.run(AeromilesApplicationAzulApi.class, args);
+        AzulService azulService = context.getBean(AzulService.class);
 
         Instant startTime = Instant.now();
-        ExecutorService executorService = Executors.newFixedThreadPool(10); // 🔹 Para rodar requisições em paralelo
+        // Reduzindo o thread pool para evitar sobrecarga
+        ExecutorService executorService = Executors.newFixedThreadPool(25);
 
         String departureAirport = "BSB";
-        List<String> arrivalAirports = List.of("GDR");
-                /*List.of("MIA", "MCO", "SCL", "EZE"*//*, "SDU", "GIG", "MCZ", "JPA", "FOR", "NAT", "MIA", "MCO", "EZE", "SCL", "CDG", "YYZ" "FLN", "SDU", "GIG", "GRU", "CNF", "VCP", "REC", "SSA", "POA", "FOR",
-                "BEL", "VIX", "GYN", "MAO", "CGB", "IGU", "NAT", "CGH", "MCZ", "JPA", "SLZ",
-                "CWB", "AJU", "BPS", "TFF", "IOS", "PMW", "THE", "BVB", "RBR", "PNZ"*//*);*/
+        List<String> arrivalAirports = List.of("SCL", "BUE");
 
-        LocalDate startDate = LocalDate.of(2025, 9, 10);
-        LocalDate endDate = LocalDate.of(2025, 11, 20);
+        LocalDate startDate = LocalDate.of(2025, 10, 01);
+        LocalDate endDate = LocalDate.of(2025, 10, 31);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-        List<CompletableFuture<Void>> tasks = new CopyOnWriteArrayList<>();
+        List<CompletableFuture<Void>> tasks = new ArrayList<>();
 
         for (String arrivalAirport : arrivalAirports) {
-            System.out.println("🔍 Iniciando pesquisa para o destino: " + arrivalAirport);
+            logger.info("🔍 Iniciando pesquisa para o destino: {}", arrivalAirport);
             AtomicInteger dayCounter = new AtomicInteger(0);
-            long totalDays = startDate.datesUntil(endDate.plusDays(1)).count();
+            long totalDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
 
             for (LocalDate currentDate = startDate; !currentDate.isAfter(endDate); currentDate = currentDate.plusDays(1)) {
                 String departureTime = currentDate.format(formatter);
                 int currentProgress = dayCounter.incrementAndGet();
 
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    System.out.println("📡 Pesquisando voos para " + arrivalAirport + " no dia " + departureTime + " (" + currentProgress + "/" + totalDays + ")");
+                    try {
+                        logger.info("📡 Pesquisando voos para {} no dia {} ({}/{})",
+                                arrivalAirport, departureTime, currentProgress, totalDays);
 
-                    String response = flightSearchService.searchAirlines(departureAirport, arrivalAirport, departureTime,1);
-                    String searchId = flightSearchService.getSearchIdFromResponse(response);
-                    List<String> airlines = flightSearchService.parseAirlines(response);
-                    for (String airline : airlines) {
-                        flightSearchService.searchFlightsByAirline(airline, searchId);
+                        azulService.searchFlightsAzul(departureAirport, arrivalAirport, departureTime);
+
+                        logger.info("✅ Consulta finalizada para {} no dia {}", arrivalAirport, departureTime);
+                    } catch (Exception e) {
+                        logger.error("❌ Erro na consulta para {} no dia {}", arrivalAirport, departureTime, e);
                     }
-
-                    System.out.println("✅ Consulta finalizada para " + arrivalAirport + " no dia " + departureTime);
                 }, executorService);
 
                 tasks.add(future);
             }
         }
 
+        // Aguardar conclusão de todas as tarefas
+        CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
+        executorService.shutdown();
+
+        Instant endTime = Instant.now();
+        Duration duration = Duration.between(startTime, endTime);
+        LocalTime executionTime = LocalTime.ofSecondOfDay(duration.getSeconds());
+        System.out.println("🏁 Duração total da execução: " + executionTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+
+/*        // 🔹 Esperar todas as threads finalizarem antes de encerrar a aplicação
         CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
 
         executorService.shutdown();
@@ -72,7 +85,7 @@ public class AeromilesApplicationMaxMilhasApi {
         Instant endTime = Instant.now();
         Duration duration = Duration.between(startTime, endTime);
         LocalTime executionTime = LocalTime.ofSecondOfDay(duration.getSeconds());
-        System.out.println("🏁 Duração total da execução: " + executionTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+        System.out.println("🏁 Duração total da execução: " + executionTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")));*/
     }
 
 	/*public static void main(String[] args) {

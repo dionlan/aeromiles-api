@@ -25,19 +25,20 @@ public class AeromilesApplicationApi {
         SpringApplication.run(AeromilesApplicationApi.class, args);
     }*/
     public static void main(String[] args) {
-        ConfigurableApplicationContext context = SpringApplication.run(TesteMain.class, args);
+        ConfigurableApplicationContext context = SpringApplication.run(AeromilesApplicationApi.class, args);
         OneTwoThreeService oneTwoThreeService = context.getBean(OneTwoThreeService.class);
 
         Instant startTime = Instant.now();
-        ExecutorService executorService = Executors.newFixedThreadPool(10); // 🔹 Para rodar requisições em paralelo
+        ExecutorService executorService = Executors.newFixedThreadPool(25); // 🔹 Para rodar requisições em paralelo
 
         String departureAirport = "BSB";
-        List<String> arrivalAirports = List.of("FLN", "SDU", "GIG, MCZ, JPA, FOR, NAT"/*"FLN", "SDU", "GIG", "GRU", "CNF", "VCP", "REC", "SSA", "POA", "FOR",
+        List<String> arrivalAirports = List.of("SCL", "BUE");
+/*                List.of("MIA", "MCO", "SCL", "EZE"*//*"FLN", "SDU", "GIG, MCZ, JPA, FOR, NAT", "GRU", "CNF", "VCP", "REC", "SSA", "POA", "FOR",
                 "BEL", "VIX", "GYN", "MAO", "CGB", "IGU", "NAT", "CGH", "MCZ", "JPA", "SLZ",
-                "CWB", "AJU", "BPS", "TFF", "IOS", "PMW", "THE", "BVB", "RBR", "PNZ"*/);
+                "CWB", "AJU", "BPS", "TFF", "IOS", "PMW", "THE", "BVB", "RBR", "PNZ"*//*);*/
 
-        LocalDate startDate = LocalDate.of(2025, 2, 23);
-        LocalDate endDate = LocalDate.of(2026, 7, 1);
+        LocalDate startDate = LocalDate.of(2025, 10, 01);
+        LocalDate endDate = LocalDate.of(2025, 10, 31);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
         List<CompletableFuture<Void>> tasks = new CopyOnWriteArrayList<>();
